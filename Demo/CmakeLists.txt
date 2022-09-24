@@ -1,0 +1,20 @@
+#include_directories(${CMAKE_SOURCE_DIR}/PatchMatchImp)
+
+file(GLOB_RECURSE ExampleSrc ${CMAKE_SOURCE_DIR}/Demo/*.cu  ${CMAKE_SOURCE_DIR}/Demo/*.c ${CMAKE_SOURCE_DIR}/Demo/*.cpp)
+file(GLOB_RECURSE ExampleHead ${CMAKE_SOURCE_DIR}/Demo/*.h ${CMAKE_SOURCE_DIR}/Demo/*.hpp)
+
+add_executable(${DEMONAME} ${ExampleSrc} ${ExampleHead})
+target_link_libraries(${DEMONAME} PUBLIC 
+					  ${OpenCV_LIBS})
+install(TARGETS ${DEMONAME}  RUNTIME DESTINATION bin)
+
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
+
+if(NOT ANDROID)
+	set(INSTALL_SRCS ${INSTALL_SRCS} 
+	demo.cpp)
+endif()
+
+install(FILES ${INSTALL_SRCS}
+        DESTINATION example
+        COMPONENT dev)

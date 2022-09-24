@@ -1,0 +1,84 @@
+int main()
+{
+	cudaError_t cuda_runtime_status = cudaSuccess;
+
+	cv::Mat _image_left = cv::imread("../../data/Cone/left.png", 1);
+	cv::Mat _image_right = cv::imread("../../data/Cone/right.png", 1);
+
+	cv::Mat _gray_image_left = cv::imread("./data/Cone/left.png", 0);
+	cv::Mat _gray_image_right = cv::imread("./data/Cone/right.png", 0);
+
+	size_t width = _image_left.cols;
+	size_t height = _image_left.rows;
+	const size_t image_data_length = width * height;
+	// load gray and color image to device
+	uchar3* device_left_color_image = NULL;
+	uchar3* device_right_color_image = NULL;
+	unsigned char* device_left_gray_image = NULL;
+	unsigned char* device_right_gray_image = NULL;
+
+	cuda_runtime_status = cudaMalloc((void**)&device_left_gray_image, sizeof(unsigned char) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+	cuda_runtime_status = cudaMalloc((void**)&device_right_gray_image, sizeof(unsigned char) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+
+	cuda_runtime_status = cudaMalloc((void**)&device_left_color_image, sizeof(char3) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+	cuda_runtime_status = cudaMalloc((void**)&device_right_color_image, sizeof(char3) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+	cudaMemcpy(device_left_gray_image, _gray_image_left.data, sizeof(unsigned char)* image_data_length, cudaMemcpyHostToDevice);
+	checkCudaErrors(cuda_runtime_status);
+	cudaMemcpy(device_right_gray_image, _gray_image_right.data, sizeof(unsigned char) * image_data_length, cudaMemcpyHostToDevice);
+	checkCudaErrors(cuda_runtime_status);
+	cudaMemcpy(device_left_color_image, _image_left.data, sizeof(char3) * image_data_length, cudaMemcpyHostToDevice);
+	checkCudaErrors(cuda_runtime_status);
+	cudaMemcpy(device_right_color_image, _image_right.data, sizeof(char3) * image_data_length, cudaMemcpyHostToDevice);
+	checkCudaErrors(cuda_runtime_status);
+	//
+	short3* device_left_grad_image = NULL;
+	short3* device_right_grad_image = NULL;
+
+
+	cuda_runtime_status = cudaMalloc((void**)&device_left_grad_image, sizeof(short3) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+	cuda_runtime_status = cudaMalloc((void**)&device_right_grad_image, sizeof(short3) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+	dim3 threadsperblock(32u, 32u);
+	dim3 blockpergrid(15u, 12u);
+	cuSobelGrad << < blockpergrid, threadsperblock >> > (device_left_gray_image, device_left_grad_image, width, height);
+	cuSobelGrad << < blockpergrid, threadsperblock >> > (device_right_gray_image, device_right_grad_image, width, height);
+	//--------------------
+	float* device_left_gray_image_cu = NULL;
+	float* device_right_gray_image_cu = NULL;
+	cuda_runtime_status = cudaMalloc((void**)&device_left_gray_image_cu, sizeof(float) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+	cuda_runtime_status = cudaMalloc((void**)&device_right_gray_image_cu, sizeof(float) * image_data_length);
+	checkCudaErrors(cuda_runtime_status);
+	cuColorToGray << <blockpergrid, threadsperblock >> > (device_left_gray_image_cu, device_left_color_image, width, height);
+	cuColorToGray << <blockpergrid, threadsperblock >> > (device_right_gray_image_cu, device_right_color_image, width, height);
+
+
+	//Copy data to host-----------------------------//
+	float* left_gray_image = NULL;
+	float* right_gray_image = NULL;
+	short3* left_grad_image = NULL;
+	short3* right_grad_image = NULL;
+	cudaMallocHost((void**)&left_grad_image, sizeof(short3) * image_data_length);
+	cudaMallocHost((void**)&right_grad_image, sizeof(short3) * image_data_length);
+	cudaMallocHost(&left_gray_image, sizeof(float)*image_data_length);
+	cudaMallocHost(&right_gray_image, sizeof(float) * image_data_length);
+	cudaMemcpy(left_gray_image, device_left_gray_image_cu, sizeof(float) * image_data_length, cudaMemcpyDeviceToHost);
+	cudaMemcpy(right_gray_image, device_right_gray_image_cu, sizeof(float) * image_data_length, cudaMemcpyDeviceToHost);
+	cudaMemcpy(left_grad_image, device_left_grad_image, sizeof(short3) * image_data_length, cudaMemcpyDeviceToHost);
+	cudaMemcpy(right_grad_image, device_right_grad_image, sizeof(short3) * image_data_length, cudaMemcpyDeviceToHost);
+
+	//-----------------------------------------------//
+	cudaDeviceSynchronize();
+
+	cv::Mat gray_left_mat = cv::Mat(height, width, CV_32FC1, left_gray_image);
+	cv::Mat grad_left_mat = cv::Mat(height, width, CV_16SC3, left_grad_image);
+	cv::Mat gray_right_mat = cv::Mat(height, width, CV_32FC1, right_gray_image);
+	cv::Mat grad_right_mat = cv::Mat(height, width, CV_16SC3, right_grad_image);
+
+	return 0;
+}

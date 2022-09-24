@@ -1,0 +1,31 @@
+
+set(SDK_VERSION_EPOCH 0)
+set(SDK_VERSION_MAJOR 0)
+set(SDK_VERSION_MINOR 0)
+
+file(GLOB_RECURSE PatchMatchImpSrc ${CMAKE_SOURCE_DIR}/PatchMatchImp/*.cu  ${CMAKE_SOURCE_DIR}/PatchMatchImp/*.c ${CMAKE_SOURCE_DIR}/PatchMatchImp/*.cpp)
+file(GLOB_RECURSE PatchMatchImpHead ${CMAKE_SOURCE_DIR}/PatchMatchImp/*.h ${CMAKE_SOURCE_DIR}/PatchMatchImp/*.hpp)
+	
+add_library(${SKDNAME} SHARED ${PatchMatchImpSrc} ${PatchMatchImpHead})
+target_compile_features(${SKDNAME} PUBLIC cxx_std_11) #设置cxx版本标准
+target_link_libraries(${SKDNAME} PUBLIC 	
+	OpenMP::OpenMP_CXX
+	${OpenCV_LIBS})
+	
+if (WIN32)
+    set_target_properties(${SDKNAME} PROPERTIES
+			VERSION ${SDK_VERSION_EPOCH}.${SDK_VERSION_MAJOR}.${SDK_VERSION_MINOR}
+            OUTPUT_NAME "${SDKNAME}"
+            CLEAN_DIRECT_OUTPUT 1
+            ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    install(TARGETS ${SDKNAME}
+            RUNTIME DESTINATION bin
+            ARCHIVE DESTINATION lib)
+else (WIN32)
+    set_target_properties(${SDKNAME} PROPERTIES
+            OUTPUT_NAME "${SDKNAME}")
+    install(TARGETS ${SDKNAME}
+            LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/lib
+            ARCHIVE DESTINATION ${CMAKE_BINARY_DIR}/lib)
+endif (WIN32)
