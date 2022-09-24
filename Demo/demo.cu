@@ -26,6 +26,8 @@ int main()
 	ImageInfo bgrInfo(450u, 375u, Uchar3Img);
 	ImageInfo grayInfo(450u, 375u, UcharImg);
 
+	AlogrithConfig alogConfig;
+
 	curandGenerator_t generator;
 	curandStatus_t rand_status;
 	cudaError_t runtime_status;
@@ -123,17 +125,14 @@ int main()
 
 
 	// init device disparity plane
-	rand_status = curandGenerateNormal(generator, devdispleft, grayInfo.imgsize, 0.0, 1.0);
+	rand_status = curandGenerateUniform(generator, devdispleft, grayInfo.imgsize);
 	checkCudaErrors(cudaError_t(cuda_rand_status));
-	rand_status = curandGenerateNormal(generator, devdispright, grayInfo.imgsize, 0.0, 1.0);
+	rand_status = curandGenerateUniform(generator, devdispright, grayInfo.imgsize);
+	checkCudaErrors(cudaError_t(cuda_rand_status));	
+	rand_status = curandGenerateUniform(generator, (float*)(void*)devdispplaneleft, grayInfo.imgsize*3);
 	checkCudaErrors(cudaError_t(cuda_rand_status));
-	
-	rand_status = curandGenerateNormal(generator, (float*)(void*)devdispplaneleft, grayInfo.imgsize*3, 0.0, 1.0);
+	rand_status = curandGenerateUniform(generator, (float*)(void*)devdispplaneright,grayInfo.imgsize*3);
 	checkCudaErrors(cudaError_t(cuda_rand_status));
-	rand_status = curandGenerateNormal(generator, (float*)(void*)devdispplaneright,grayInfo.imgsize*3, 0.0, 1.0);
-	checkCudaErrors(cudaError_t(cuda_rand_status));
-
-
 
 	#ifdef DEBUG
 
@@ -153,7 +152,30 @@ int main()
 	cv::Mat hostdispplaneright_mat = cv::Mat(grayInfo.height, grayInfo.width, CV_32FC3, hostdispplaneright);
 	#endif // DEBUG
 
+	dim3 threadsperblock(32u, 32u);
+	dim3 blockpergrid(15u, 12u);
+	RandomInitialDisparityAndItsPlane(devdispleft, devdispplaneleft,
+										alogConfig.min_disparity, alogConfig.disparity_range,
+										grayInfo.width, grayInfo.height, blockpergrid, threadsperblock);
+	RandomInitialDisparityAndItsPlane(devdispright, devdispplaneright,
+		alogConfig.min_disparity, alogConfig.disparity_range,
+		grayInfo.width, grayInfo.height, blockpergrid, threadsperblock);
 
+	cudaDeviceSynchronize();
+#ifdef DEBUG
+	cuda_runtime_status = cudaMemcpy(hostdispleft, devdispleft, sizeof(float) * grayInfo.imgsize, cudaMemcpyDeviceToHost);
+	checkCudaErrors(cuda_runtime_status);
+	cuda_runtime_status = cudaMemcpy(hostdispright, devdispright, sizeof(float) * grayInfo.imgsize, cudaMemcpyDeviceToHost);
+	checkCudaErrors(cuda_runtime_status);
+	cuda_runtime_status = cudaMemcpy(hostdispplaneleft, devdispplaneleft, sizeof(float3) * grayInfo.imgsize, cudaMemcpyDeviceToHost);
+	checkCudaErrors(cuda_runtime_status);
+	cuda_runtime_status = cudaMemcpy(hostdispplaneright, devdispplaneright, sizeof(float3) * grayInfo.imgsize, cudaMemcpyDeviceToHost);
+	checkCudaErrors(cuda_runtime_status);
+	cudaDeviceSynchronize();
+#endif // DEBUG
+
+
+//------------------------------------major code--------------------------------------//
 	//load image from host memory
 	FILE *fptr = NULL;
 	fptr = fopen("../../data/Cone/left.raw", "rb");
@@ -176,14 +198,12 @@ int main()
 	checkCudaErrors(cuda_runtime_status);
 	
 	//convert bgr image to gray and grad image
-	dim3 threadsperblock(32u, 32u);
-	dim3 blockpergrid(15u, 12u);
+
 	Bgr2Gray(devgrayleft, devbgrleft,grayInfo.width, grayInfo.height, blockpergrid, threadsperblock);
 	Bgr2Gray(devgrayright, devbgrright,grayInfo.width, grayInfo.height, blockpergrid, threadsperblock);
 	Gray2Sobel(devgradleft,devgrayleft,  grayInfo.width, grayInfo.height, blockpergrid, threadsperblock);
 	Gray2Sobel(devgradright,devgrayright, grayInfo.width, grayInfo.height, blockpergrid, threadsperblock);
 	
-	//random initialiation 
 
 	//load image to host
 #ifdef DEBUG
@@ -203,6 +223,12 @@ int main()
 	cv::Mat gray_right_mat = cv::Mat(grayInfo.height, grayInfo.width, CV_32FC1, hostgrayright);
 	cv::Mat grad_right_mat = cv::Mat(grayInfo.height, grayInfo.width, CV_32FC3, hostgradright);
 #endif //DEBUG
+
+
+	for (int k = 0; k < alogConfig.num_iters; ++k)
+	{
+		DoPropagation();
+	}
 
 
 

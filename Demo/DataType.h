@@ -26,10 +26,10 @@ struct ImageInfo
 
 struct AlogrithConfig {
 	size_t patch_size;			// patch尺寸，局部窗口为 patch_size*patch_size
-	size_t min_disparity;		// 最小视差
-	size_t max_disparity;		// 最大视差
+	size_t min_disparity=0;		// 最小视差
+	size_t max_disparity=64;		// 最大视差
 	size_t disparity_range = max_disparity - min_disparity;
-	size_t num_iters;			// 传播迭代次数
+	size_t num_iters = 3;			// 传播迭代次数
 
 	float gamma;				// gamma 权值因子
 	float alpha;				// alpha 相似度平衡因子

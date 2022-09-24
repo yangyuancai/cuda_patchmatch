@@ -6,9 +6,12 @@
 	#include <stdio.h>
 	#include "DataType.h"
 
-	curandStatus_t RandomInitialFloat(float* arr, size_t N);
+void RandomInitialDisparityAndItsPlane(float* disparity, float3* disparityplane,
+										size_t min_disparity, size_t disparity_range,
+										size_t width, size_t height, 
+										dim3 blockpergrid, dim3 threadsperblock);
 
-	curandStatus_t RandomInitialFloat3(float3* arr, size_t N);
+
 
 	void Bgr2Gray(float *gray_image, uchar3 *color_image,
 		size_t width, size_t height,
